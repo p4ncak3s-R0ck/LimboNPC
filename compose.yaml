@@ -1,0 +1,12 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - gradle-cache:/root/.gradle
+      - ./build/artifacts:/workspace/build/artifacts
+
+volumes:
+  gradle-cache:

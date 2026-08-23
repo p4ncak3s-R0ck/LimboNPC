@@ -1,0 +1,4 @@
+channel: "limbo-npc:main"
+trusted-limbo-servers:
+  - "limbo"
+debug: false

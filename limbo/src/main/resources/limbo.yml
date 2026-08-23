@@ -1,0 +1,5 @@
+name: LimboNPC
+description: Lightweight server-selection NPCs for LOOHP Limbo
+main: dev.limbonpc.limbo.LimboNpcPlugin
+version: 1.0.0
+author: LimboNPC

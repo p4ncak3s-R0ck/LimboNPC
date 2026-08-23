@@ -1,0 +1,11 @@
+bridge:
+  channel: "limbo-npc:main"
+
+npc:
+  interaction-cooldown-ms: 500
+  look-at-player: false
+  default-hologram:
+    - "<gray>Click to join!"
+
+messages:
+  prefix: "<dark_gray>[<green>LimboNPC<dark_gray>] "
