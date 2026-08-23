@@ -1,5 +1,10 @@
 # LimboNPC
 
+> NOTICE: VIBE CODED
+> This project has been vibe coded as a small project meant for me and a few friends to use. This isn't meant to be used in big deployment.
+> USE AT YOUR OWN DESCRETION
+> At a glance I don't se any vulnerabilities.
+
 Lightweight clickable server-selector NPCs for [LOOHP Limbo](https://github.com/LOOHP/Limbo) and Velocity.
 
 A click sends a small, versioned plugin message to Velocity. The bridge validates the source, player, and destination, then runs the normal `server <name>` command as that player. It does not bypass Velocity permissions, command events, ServerPermissions, or pre-connect plugins.
@@ -26,12 +31,12 @@ Build every compatibility range:
 The six distributable jars are collected in `build/artifacts/`:
 
 ```text
-LimboNPC-Limbo-26.jar
 LimboNPC-Velocity-26.jar
-LimboNPC-Limbo-1.21.jar
 LimboNPC-Velocity-1.21.jar
-LimboNPC-Limbo-1.20.jar
 LimboNPC-Velocity-1.20.jar
+LimboNPC-Limbo-26.jar
+LimboNPC-Limbo-1.21.jar
+LimboNPC-Limbo-1.20.jar
 ```
 
 To build one range only:
