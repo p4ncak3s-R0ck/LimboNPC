@@ -48,9 +48,12 @@ public final class NpcManager {
 
     public NpcManager(ConfigService repository) {
         this.repository = repository;
-        int protocol = Limbo.getInstance().SERVER_IMPLEMENTATION_PROTOCOL;
+        int protocol = LimboRuntime.protocol();
         this.playerEntityTypeId = entityTypeId("minecraft:player", legacyPlayerTypeId(protocol));
         this.armorStandEntityTypeId = entityTypeId("minecraft:armor_stand", legacyArmorStandTypeId(protocol));
+        if (playerEntityTypeId < 0 || armorStandEntityTypeId < 0) {
+            throw new IllegalStateException("Missing entity registry mappings for protocol " + protocol + "; refusing to render unsafe NPC packets.");
+        }
     }
 
     public synchronized void loadAndSpawn() throws IOException {
@@ -176,7 +179,7 @@ public final class NpcManager {
     private void sendEntity(Player player, Entity entity) throws IOException {
         PacketOut spawn = createSpawnPacket(entity);
         int entityTypeId = entity instanceof PlayerNpcEntity ? playerEntityTypeId : armorStandEntityTypeId;
-        player.clientConnection.getChannel().writePacketRaw(replaceSpawnEntityType(spawn.serializePacket(), entityTypeId));
+        SynchronizedPacketSender.sendRaw(player.clientConnection, replaceSpawnEntityType(spawn.serializePacket(), entityTypeId));
         player.clientConnection.sendPacket(metadataPacket(entity));
     }
 

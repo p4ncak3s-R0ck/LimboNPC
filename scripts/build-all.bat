@@ -9,7 +9,7 @@ if exist velocity\build\libs\LimboNPC-Velocity-*.jar del /q velocity\build\libs\
 
 for %%V in (26 1.21 1.20) do (
   echo Building compatibility range %%V.x
-  call gradlew.bat --no-daemon :common:test :limbo:jar :velocity:jar -PminecraftVersion=%%V
+  call gradlew.bat --no-daemon :common:test :velocity:test :limbo:jar :velocity:jar -PminecraftVersion=%%V
   if errorlevel 1 exit /b 1
   copy /y "limbo\build\libs\LimboNPC-Limbo-%%V.jar" build\artifacts\ >nul
   copy /y "velocity\build\libs\LimboNPC-Velocity-%%V.jar" build\artifacts\ >nul

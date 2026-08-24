@@ -78,6 +78,8 @@ The backend name must exactly identify the Limbo server in Velocity's server reg
 ```text
 /limbonpc create <id> [server]
 /limbonpc remove <id>
+/limbonpc enable <id>
+/limbonpc disable <id>
 /limbonpc move <id>
 /limbonpc server <id> <server>
 /limbonpc name <id> <MiniMessage...>
@@ -90,6 +92,7 @@ The backend name must exactly identify the Limbo server in Velocity's server reg
 /limbonpc hologram <id> clear
 /limbonpc info <id>
 /limbonpc list
+/limbonpc status
 /limbonpc reload
 ```
 
@@ -103,10 +106,34 @@ Grant all administration with:
 limbo-npc.npc.*
 ```
 
-Or grant individual actions under `limbo-npc.npc.<action>` (`create`, `remove`, `move`, `server`, `name`, `skin`, `hologram`, `info`, `list`, `reload`). LimboNPC explicitly checks both the wildcard and action node because Limbo permissions use exact matching.
+Or grant individual actions under `limbo-npc.npc.<action>` (`create`, `remove`, `enable`, `disable`, `move`, `server`, `name`, `skin`, `hologram`, `info`, `list`, `status`, `reload`). LimboNPC explicitly checks both the wildcard and action node because Limbo permissions use exact matching.
 
 Players need no LimboNPC permission to click NPCs. They still need the normal Velocity `/server` permission and any destination permission required by your proxy plugins.
 
 ## Security
 
-The Velocity bridge marks matching messages handled and rejects client-originated messages, untrusted backends, malformed protocol data, mismatched player UUIDs, stale backend connections, and unknown destinations. Only a canonical registered server name can reach `CommandManager.executeAsync(player, "server " + name)`.
+The Velocity bridge marks matching messages handled and rejects client-originated messages, untrusted backends, malformed protocol data, mismatched player UUIDs, stale backend connections, rate-limited requests, and unknown destinations. Only a canonical registered server name can reach `CommandManager.executeAsync(player, "server " + name)`.
+
+## Operations
+
+The versioned protocol includes transfer acknowledgements and health probes. Limbo displays configurable timeout, unavailable-server, rate-limit, and transfer-failure messages instead of failing silently.
+
+Velocity administration:
+
+```text
+/limbonpcvelocity status
+/limbonpcvelocity reload
+/limbonpcreload
+```
+
+Permission: `limbo-npc.velocity.admin`.
+
+Both plugins expose counters through their status commands. Set `debug: true` in either plugin's `config.yml` for request IDs, routing decisions, acknowledgements, and rejection logging. Velocity also supports `rate-limit.cooldown-ms`; Limbo supports `bridge.acknowledgement-timeout-ms`. User-facing messages are configurable under `messages`.
+
+Runtime integration smoke test:
+
+```bash
+./scripts/integration-smoke.sh
+```
+
+It boots real Limbo 26.2 and Velocity 3.5.1 instances, loads a persisted NPC, verifies protocol compatibility, and fails on plugin initialization errors.

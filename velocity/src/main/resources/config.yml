@@ -1,4 +1,14 @@
 channel: "limbo-npc:main"
 trusted-limbo-servers:
   - "limbo"
+
 debug: false
+
+rate-limit:
+  cooldown-ms: 500
+
+messages:
+  unknown-server: "That server is currently unavailable."
+  rate-limited: "Please wait before selecting another server."
+  reload-success: "LimboNPC configuration reloaded."
+  reload-failed: "LimboNPC reload failed; check the proxy log."

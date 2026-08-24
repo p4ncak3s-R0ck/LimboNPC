@@ -20,6 +20,7 @@ public record NpcDefinition(String id, boolean enabled, String server, String di
         hologram = hologram == null ? List.of() : List.copyOf(hologram);
     }
 
+    public NpcDefinition withEnabled(boolean value) { return new NpcDefinition(id, value, server, displayName, location, skin, hologram); }
     public NpcDefinition withLocation(NpcLocation value) { return new NpcDefinition(id, enabled, server, displayName, value, skin, hologram); }
     public NpcDefinition withServer(String value) { return new NpcDefinition(id, enabled, value, displayName, location, skin, hologram); }
     public NpcDefinition withDisplayName(String value) { return new NpcDefinition(id, enabled, server, value, location, skin, hologram); }

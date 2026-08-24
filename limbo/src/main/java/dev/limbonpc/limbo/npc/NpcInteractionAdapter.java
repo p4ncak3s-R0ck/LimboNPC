@@ -11,6 +11,7 @@ import com.loohp.limbo.network.ChannelPacketHandler;
 import com.loohp.limbo.network.ChannelPacketRead;
 import com.loohp.limbo.player.Player;
 import com.loohp.limbo.utils.DataTypeIO;
+import dev.limbonpc.limbo.bridge.LimboMetrics;
 import dev.limbonpc.limbo.bridge.VelocityBridgeClient;
 import java.io.DataInput;
 import java.io.InputStream;
@@ -26,17 +27,18 @@ public final class NpcInteractionAdapter implements Listener {
     private final NpcManager npcs;
     private final VelocityBridgeClient bridge;
     private final long cooldownMs;
+    private final LimboMetrics metrics;
     private final Map<UUID, Long> lastInteraction = new ConcurrentHashMap<>();
     private final int interactPacketId;
     private final int attackPacketId;
 
-    public NpcInteractionAdapter(NpcManager npcs, VelocityBridgeClient bridge, long cooldownMs) {
-        this.npcs = npcs; this.bridge = bridge; this.cooldownMs = Math.max(0, cooldownMs);
+    public NpcInteractionAdapter(NpcManager npcs, VelocityBridgeClient bridge, LimboMetrics metrics, long cooldownMs) {
+        this.npcs = npcs; this.bridge = bridge; this.metrics = metrics; this.cooldownMs = Math.max(0, cooldownMs);
         int discoveredInteract = packetId("minecraft:interact");
-        this.interactPacketId = discoveredInteract >= 0 ? discoveredInteract : legacyInteractPacketId(Limbo.getInstance().SERVER_IMPLEMENTATION_PROTOCOL);
+        this.interactPacketId = discoveredInteract >= 0 ? discoveredInteract : legacyInteractPacketId(LimboRuntime.protocol());
         this.attackPacketId = packetId("minecraft:attack");
         if (interactPacketId < 0 && attackPacketId < 0) {
-            throw new IllegalStateException("Unsupported Limbo protocol " + Limbo.getInstance().SERVER_IMPLEMENTATION_PROTOCOL);
+            throw new IllegalStateException("Unsupported Limbo protocol " + LimboRuntime.protocol());
         }
     }
 
@@ -75,6 +77,7 @@ public final class NpcInteractionAdapter implements Listener {
         long now = System.currentTimeMillis();
         Long previous = lastInteraction.put(player.getUniqueId(), now);
         if (previous != null && now - previous < cooldownMs) return;
+        metrics.click();
         bridge.requestServerTransfer(player, npc);
     }
 
@@ -100,6 +103,9 @@ public final class NpcInteractionAdapter implements Listener {
             default -> -1;
         };
     }
+
+    public int interactPacketId() { return interactPacketId; }
+    public int attackPacketId() { return attackPacketId; }
 
     private static int packetId(String key) {
         try (InputStream in = NpcInteractionAdapter.class.getClassLoader().getResourceAsStream("reports/packets.json")) {

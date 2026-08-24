@@ -7,6 +7,8 @@ dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     annotationProcessor("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
     implementation("org.yaml:snakeyaml:2.4")
+    testImplementation("org.mockito:mockito-core:5.15.2")
+    testImplementation("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
 }
 
 tasks.jar {

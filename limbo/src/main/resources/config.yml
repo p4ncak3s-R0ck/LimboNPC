@@ -1,5 +1,8 @@
+debug: false
+
 bridge:
   channel: "limbo-npc:main"
+  acknowledgement-timeout-ms: 2500
 
 npc:
   interaction-cooldown-ms: 500
@@ -9,3 +12,28 @@ npc:
 
 messages:
   prefix: "<dark_gray>[<green>LimboNPC<dark_gray>] "
+  no-permission: "<red>You do not have permission."
+  player-only: "<red>This command can only be used by a player."
+  npc-not-found: "<red>NPC '<id>' does not exist."
+  bridge-timeout: "<red>The server selector bridge did not respond."
+  unknown-server: "<red>That server is currently unavailable."
+  rate-limited: "<yellow>Please wait before selecting another server."
+  transfer-failed: "<red>The server transfer could not be started."
+  status-probe: "<gray>Checking the Velocity bridge..."
+  status-online: "<green>Velocity bridge online via '<backend>' (protocol <protocol>)."
+  npc-enabled: "<green>Enabled NPC '<id>'."
+  npc-disabled: "<green>Disabled NPC '<id>'."
+  npc-created: "<green>Created NPC '<white><id><green>' targeting '<white><server><green>'."
+  npc-removed: "<green>Removed NPC '<white><id><green>'."
+  npc-moved: "<green>Moved NPC '<white><id><green>'."
+  server-updated: "<green>NPC '<id>' now targets '<server>'."
+  name-updated: "<green>Display name updated for '<id>'."
+  hologram-updated: "<green>Hologram updated for '<id>'."
+  skin-cleared: "<green>Skin cleared for '<id>'."
+  skin-updated: "<green>Skin updated for '<id>'."
+  skin-cached: "<green>Skin for '<id>' updated from cache."
+  skin-resolving: "<gray>Resolving skin for <username>..."
+  skin-lookup-failed: "<red>Skin lookup failed: <error>"
+  skin-save-failed: "<red>Could not save skin: <error>"
+  operation-failed: "<red>Operation failed: <error>"
+  reloaded: "<green>Configuration reloaded."

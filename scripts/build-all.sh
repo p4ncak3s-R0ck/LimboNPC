@@ -10,7 +10,7 @@ rm -f limbo/build/libs/LimboNPC-Limbo-*.jar velocity/build/libs/LimboNPC-Velocit
 
 for version in "${versions[@]}"; do
   echo "Building compatibility range ${version}.x"
-  ./gradlew --no-daemon :common:test :limbo:jar :velocity:jar -PminecraftVersion="$version"
+  ./gradlew --no-daemon :common:test :velocity:test :limbo:jar :velocity:jar -PminecraftVersion="$version"
   cp "limbo/build/libs/LimboNPC-Limbo-${version}.jar" build/artifacts/
   cp "velocity/build/libs/LimboNPC-Velocity-${version}.jar" build/artifacts/
 done

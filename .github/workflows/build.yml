@@ -35,6 +35,10 @@ jobs:
       - name: Build and test
         run: ./gradlew clean build -PminecraftVersion=${{ matrix.minecraft }}
 
+      - name: Runtime integration smoke test
+        if: matrix.minecraft == '26'
+        run: ./scripts/integration-smoke.sh
+
       - name: Verify artifacts
         run: |
           test -f limbo/build/libs/LimboNPC-Limbo-${{ matrix.minecraft }}.jar

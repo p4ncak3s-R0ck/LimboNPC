@@ -41,11 +41,17 @@ public final class ConfigService {
         Map<String, Object> npc = map(root.get("npc"));
         Map<String, Object> messages = map(root.get("messages"));
         LimboConfig defaults = LimboConfig.defaults();
+        Map<String, String> templates = new LinkedHashMap<>(defaults.messages());
+        for (Map.Entry<String, Object> entry : messages.entrySet()) {
+            if (!entry.getKey().equals("prefix") && entry.getValue() != null) templates.put(entry.getKey(), String.valueOf(entry.getValue()));
+        }
         return new LimboConfig(string(bridge, "channel", defaults.channel()),
                 longValue(npc, "interaction-cooldown-ms", defaults.interactionCooldownMs()),
+                longValue(bridge, "acknowledgement-timeout-ms", defaults.acknowledgementTimeoutMs()),
                 bool(npc, "look-at-player", defaults.lookAtPlayer()),
+                bool(root, "debug", defaults.debug()),
                 strings(npc.get("default-hologram"), defaults.defaultHologram()),
-                string(messages, "prefix", defaults.prefix()));
+                string(messages, "prefix", defaults.prefix()), templates);
     }
 
     public Map<String, NpcDefinition> loadNpcs() throws IOException {

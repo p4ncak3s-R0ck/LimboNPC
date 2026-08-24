@@ -3,7 +3,7 @@ package dev.limbonpc.common.protocol;
 import java.util.Objects;
 import java.util.UUID;
 
-public record ConnectRequest(UUID playerUuid, String npcId, String serverName) {
+public record ConnectRequest(long requestId, UUID playerUuid, String npcId, String serverName) implements ProtocolMessage {
     public ConnectRequest {
         Objects.requireNonNull(playerUuid, "playerUuid");
         Objects.requireNonNull(npcId, "npcId");

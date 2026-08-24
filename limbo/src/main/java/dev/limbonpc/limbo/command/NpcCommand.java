@@ -7,6 +7,9 @@ import com.loohp.limbo.commands.TabCompletor;
 import com.loohp.limbo.location.Location;
 import com.loohp.limbo.player.Player;
 import com.loohp.limbo.plugins.LimboPlugin;
+import dev.limbonpc.common.protocol.Protocol;
+import dev.limbonpc.limbo.bridge.LimboMetrics;
+import dev.limbonpc.limbo.bridge.VelocityBridgeClient;
 import dev.limbonpc.limbo.config.LimboConfig;
 import dev.limbonpc.limbo.npc.NpcDefinition;
 import dev.limbonpc.limbo.npc.NpcLocation;
@@ -24,27 +27,33 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 public final class NpcCommand implements CommandExecutor, TabCompletor {
-    private static final List<String> ACTIONS = List.of("create", "remove", "move", "server", "name", "skin", "hologram", "info", "list", "reload");
+    private static final List<String> ACTIONS = List.of("create", "remove", "enable", "disable", "move", "server", "name", "skin", "hologram", "info", "list", "status", "reload");
     private final LimboPlugin plugin;
     private final NpcManager npcs;
     private final SkinService skins;
     private final Supplier<LimboConfig> config;
+    private final VelocityBridgeClient bridge;
+    private final LimboMetrics metrics;
     private final ReloadAction reloadAction;
     private final MiniMessage mini = MiniMessage.miniMessage();
 
-    public NpcCommand(LimboPlugin plugin, NpcManager npcs, SkinService skins, Supplier<LimboConfig> config, ReloadAction reloadAction) {
-        this.plugin = plugin; this.npcs = npcs; this.skins = skins; this.config = config; this.reloadAction = reloadAction;
+    public NpcCommand(LimboPlugin plugin, NpcManager npcs, SkinService skins, Supplier<LimboConfig> config,
+                      VelocityBridgeClient bridge, LimboMetrics metrics, ReloadAction reloadAction) {
+        this.plugin = plugin; this.npcs = npcs; this.skins = skins; this.config = config;
+        this.bridge = bridge; this.metrics = metrics; this.reloadAction = reloadAction;
     }
 
     @Override public void execute(CommandSender sender, String[] args) {
         if (args.length == 0 || (!args[0].equalsIgnoreCase("limbonpc") && !args[0].equalsIgnoreCase("lnpc"))) return;
         if (args.length == 1 || args[1].equalsIgnoreCase("help")) { help(sender); return; }
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (!NpcPermissions.has(sender, action)) { message(sender, "<red>You do not have permission."); return; }
+        if (!NpcPermissions.has(sender, action)) { message(sender, config.get().message("no-permission", "<red>You do not have permission.")); return; }
         try {
             switch (action) {
                 case "create" -> create(sender, args);
                 case "remove" -> remove(sender, args);
+                case "enable" -> enabled(sender, args, true);
+                case "disable" -> enabled(sender, args, false);
                 case "move" -> move(sender, args);
                 case "server" -> server(sender, args);
                 case "name" -> name(sender, args);
@@ -52,11 +61,12 @@ public final class NpcCommand implements CommandExecutor, TabCompletor {
                 case "hologram" -> hologram(sender, args);
                 case "info" -> info(sender, args);
                 case "list" -> list(sender);
-                case "reload" -> { reloadAction.reload(); message(sender, "<green>Configuration reloaded."); }
+                case "status" -> status(sender);
+                case "reload" -> { reloadAction.reload(); message(sender, config.get().message("reloaded", "<green>Configuration reloaded.")); }
                 default -> help(sender);
             }
         } catch (IllegalArgumentException e) { message(sender, "<red>" + escape(e.getMessage())); }
-          catch (Exception e) { message(sender, "<red>Operation failed: " + escape(e.getMessage())); e.printStackTrace(); }
+          catch (Exception e) { templated(sender, "operation-failed", "<red>Operation failed: <error>", "error", escape(e.getMessage())); e.printStackTrace(); }
     }
 
     private void create(CommandSender sender, String[] args) throws IOException {
@@ -68,33 +78,40 @@ public final class NpcCommand implements CommandExecutor, TabCompletor {
         NpcLocation location = new NpcLocation(l.getWorld().getName(), l.getX(), l.getY(), l.getZ(), l.getYaw(), l.getPitch());
         String display = "<green><bold>" + id.toUpperCase(Locale.ROOT);
         npcs.create(new NpcDefinition(id, true, server, display, location, NpcSkin.none(), config.get().defaultHologram()));
-        message(sender, "<green>Created NPC '<white>" + id + "<green>' targeting '<white>" + server + "<green>'.");
+        templated(sender, "npc-created", "<green>Created NPC '<white><id><green>' targeting '<white><server><green>'.", "id", id, "server", escape(server));
     }
 
-    private void remove(CommandSender sender, String[] args) throws IOException { requireArgs(args, 3, "/limbonpc remove <npc-id>"); npcs.remove(args[2]); message(sender, "<green>Removed NPC '<white>" + escape(args[2]) + "<green>'."); }
+    private void remove(CommandSender sender, String[] args) throws IOException { requireArgs(args, 3, "/limbonpc remove <npc-id>"); npcs.remove(args[2]); templated(sender, "npc-removed", "<green>Removed NPC '<white><id><green>'.", "id", escape(args[2])); }
+    private void enabled(CommandSender sender, String[] args, boolean enabled) throws IOException {
+        RuntimeNpc npc = npc(args, 3, "/limbonpc " + (enabled ? "enable" : "disable") + " <npc-id>");
+        npcs.update(npc.definition().id(), npc.definition().withEnabled(enabled));
+        String key = enabled ? "npc-enabled" : "npc-disabled";
+        String fallback = enabled ? "<green>Enabled NPC '<id>'." : "<green>Disabled NPC '<id>'.";
+        message(sender, config.get().message(key, fallback).replace("<id>", escape(npc.definition().id())));
+    }
     private void move(CommandSender sender, String[] args) throws IOException {
         Player player = player(sender); RuntimeNpc npc = npc(args, 3, "/limbonpc move <npc-id>"); Location l = player.getLocation();
         NpcLocation location = new NpcLocation(l.getWorld().getName(), l.getX(), l.getY(), l.getZ(), l.getYaw(), l.getPitch());
-        npcs.update(npc.definition().id(), npc.definition().withLocation(location)); message(sender, "<green>Moved NPC '<white>" + npc.definition().id() + "<green>'.");
+        npcs.update(npc.definition().id(), npc.definition().withLocation(location)); templated(sender, "npc-moved", "<green>Moved NPC '<white><id><green>'.", "id", npc.definition().id());
     }
-    private void server(CommandSender sender, String[] args) throws IOException { RuntimeNpc npc = npc(args, 4, "/limbonpc server <npc-id> <server>"); npcs.update(npc.definition().id(), npc.definition().withServer(args[3])); message(sender, "<green>Destination updated."); }
-    private void name(CommandSender sender, String[] args) throws IOException { RuntimeNpc npc = npc(args, 4, "/limbonpc name <npc-id> <MiniMessage...>"); String value = join(args, 3); mini.deserialize(value); npcs.update(npc.definition().id(), npc.definition().withDisplayName(value)); message(sender, "<green>Display name updated."); }
+    private void server(CommandSender sender, String[] args) throws IOException { RuntimeNpc npc = npc(args, 4, "/limbonpc server <npc-id> <server>"); npcs.update(npc.definition().id(), npc.definition().withServer(args[3])); templated(sender, "server-updated", "<green>NPC '<id>' now targets '<server>'.", "id", npc.definition().id(), "server", escape(args[3])); }
+    private void name(CommandSender sender, String[] args) throws IOException { RuntimeNpc npc = npc(args, 4, "/limbonpc name <npc-id> <MiniMessage...>"); String value = join(args, 3); mini.deserialize(value); npcs.update(npc.definition().id(), npc.definition().withDisplayName(value)); templated(sender, "name-updated", "<green>Display name updated for '<id>'.", "id", npc.definition().id()); }
 
     private void skin(CommandSender sender, String[] args) throws IOException {
         RuntimeNpc npc = npc(args, 4, "/limbonpc skin <npc-id> <username|texture|clear> ..."); String mode = args[3].toLowerCase(Locale.ROOT);
         switch (mode) {
-            case "clear" -> { npcs.update(npc.definition().id(), npc.definition().withSkin(NpcSkin.none())); message(sender, "<green>Skin cleared."); }
-            case "texture" -> { requireArgs(args, 6, "/limbonpc skin <npc-id> texture <value> <signature>"); npcs.update(npc.definition().id(), npc.definition().withSkin(NpcSkin.texture(args[4], args[5]))); message(sender, "<green>Skin updated."); }
+            case "clear" -> { npcs.update(npc.definition().id(), npc.definition().withSkin(NpcSkin.none())); templated(sender, "skin-cleared", "<green>Skin cleared for '<id>'.", "id", npc.definition().id()); }
+            case "texture" -> { requireArgs(args, 6, "/limbonpc skin <npc-id> texture <value> <signature>"); npcs.update(npc.definition().id(), npc.definition().withSkin(NpcSkin.texture(args[4], args[5]))); templated(sender, "skin-updated", "<green>Skin updated for '<id>'.", "id", npc.definition().id()); }
             case "username" -> {
                 requireArgs(args, 5, "/limbonpc skin <npc-id> username <minecraft-name>"); String username = args[4]; NpcSkin cached = skins.cached(username);
-                if (cached != null) { npcs.update(npc.definition().id(), npc.definition().withSkin(cached)); message(sender, "<green>Skin updated from cache."); return; }
-                message(sender, "<gray>Resolving skin for " + escape(username) + "...");
+                if (cached != null) { npcs.update(npc.definition().id(), npc.definition().withSkin(cached)); templated(sender, "skin-cached", "<green>Skin for '<id>' updated from cache.", "id", npc.definition().id()); return; }
+                templated(sender, "skin-resolving", "<gray>Resolving skin for <username>...", "username", escape(username));
                 skins.resolve(username).whenComplete((resolved, error) -> Limbo.getInstance().getScheduler().runTask(plugin, () -> {
-                    if (error != null) { message(sender, "<red>Skin lookup failed: " + escape(rootMessage(error))); return; }
+                    if (error != null) { templated(sender, "skin-lookup-failed", "<red>Skin lookup failed: <error>", "error", escape(rootMessage(error))); return; }
                     try {
                         RuntimeNpc current = npcs.get(npc.definition().id()).orElse(null);
-                        if (current != null) { npcs.update(current.definition().id(), current.definition().withSkin(resolved)); message(sender, "<green>Skin updated."); }
-                    } catch (IOException e) { message(sender, "<red>Could not save skin: " + escape(e.getMessage())); }
+                        if (current != null) { npcs.update(current.definition().id(), current.definition().withSkin(resolved)); templated(sender, "skin-updated", "<green>Skin updated for '<id>'.", "id", current.definition().id()); }
+                    } catch (IOException e) { templated(sender, "skin-save-failed", "<red>Could not save skin: <error>", "error", escape(e.getMessage())); }
                 }));
             }
             default -> throw new IllegalArgumentException("Skin mode must be username, texture, or clear.");
@@ -111,7 +128,7 @@ public final class NpcCommand implements CommandExecutor, TabCompletor {
             case "clear" -> lines.clear();
             default -> throw new IllegalArgumentException("Hologram action must be add, set, remove, or clear.");
         }
-        npcs.update(npc.definition().id(), npc.definition().withHologram(lines)); message(sender, "<green>Hologram updated.");
+        npcs.update(npc.definition().id(), npc.definition().withHologram(lines)); templated(sender, "hologram-updated", "<green>Hologram updated for '<id>'.", "id", npc.definition().id());
     }
 
     private void info(CommandSender sender, String[] args) {
@@ -121,6 +138,18 @@ public final class NpcCommand implements CommandExecutor, TabCompletor {
                 "\n<green>Skin: <white>" + n.skin().type().name().toLowerCase(Locale.ROOT) + "\n<green>Hologram lines: <white>" + n.hologram().size() + "\n<green>Enabled: <white>" + n.enabled());
     }
     private void list(CommandSender sender) { CollectionView list = new CollectionView(npcs.all().stream().map(n -> "<gray>- <white>" + n.definition().id() + " <dark_gray>-> <green>" + escape(n.definition().server())).toList()); message(sender, "<green>NPCs (" + list.lines.size() + "):\n" + String.join("\n", list.lines)); }
+    private void status(CommandSender sender) {
+        long last = metrics.lastResponseAt();
+        String response = last == 0 ? "never" : ((System.currentTimeMillis() - last) + "ms ago");
+        message(sender, "<green>LimboNPC status\n<gray>Protocol: <white>" + Protocol.VERSION
+                + "\n<gray>Channel: <white>" + escape(config.get().channel())
+                + "\n<gray>NPCs: <white>" + npcs.all().size()
+                + "\n<gray>Pending: <white>" + bridge.pendingCount()
+                + "\n<gray>Last bridge response: <white>" + response
+                + "\n<gray>Clicks/ACKs/Timeouts/Errors: <white>" + metrics.clicks() + "/" + metrics.acknowledgements()
+                + "/" + metrics.timeouts() + "/" + metrics.errors());
+        if (sender instanceof Player player) bridge.probe(player);
+    }
 
     private void help(CommandSender sender) {
         if (!NpcPermissions.has(sender, "info")) { message(sender, "<red>You do not have permission."); return; }
@@ -133,17 +162,22 @@ public final class NpcCommand implements CommandExecutor, TabCompletor {
         if (args.length == 0) return NpcPermissions.has(sender, "info") ? List.of("limbonpc", "lnpc") : List.of();
         if (!args[0].equalsIgnoreCase("limbonpc") && !args[0].equalsIgnoreCase("lnpc")) return List.of();
         if (args.length == 2) return filter(ACTIONS.stream().filter(a -> NpcPermissions.has(sender, a)).toList(), args[1]);
-        if (args.length == 3 && List.of("remove", "move", "server", "name", "skin", "hologram", "info").contains(args[1].toLowerCase(Locale.ROOT))) return filter(npcs.definitions().stream().map(NpcDefinition::id).toList(), args[2]);
+        if (args.length == 3 && List.of("remove", "enable", "disable", "move", "server", "name", "skin", "hologram", "info").contains(args[1].toLowerCase(Locale.ROOT))) return filter(npcs.definitions().stream().map(NpcDefinition::id).toList(), args[2]);
         if (args.length == 4 && args[1].equalsIgnoreCase("skin")) return filter(List.of("username", "texture", "clear"), args[3]);
         if (args.length == 4 && args[1].equalsIgnoreCase("hologram")) return filter(List.of("add", "set", "remove", "clear"), args[3]);
         return List.of();
     }
 
     private RuntimeNpc npc(String[] args, int required, String usage) { requireArgs(args, required, usage); return npcs.get(args[2]).orElseThrow(() -> new IllegalArgumentException("NPC '" + args[2] + "' does not exist.")); }
-    private Player player(CommandSender sender) { if (sender instanceof Player p) return p; throw new IllegalArgumentException("This command can only be used by a player."); }
+    private Player player(CommandSender sender) { if (sender instanceof Player p) return p; throw new IllegalArgumentException(config.get().message("player-only", "This command can only be used by a player.").replace("<red>", "")); }
     private static void requireArgs(String[] args, int count, String usage) { if (args.length < count) throw new IllegalArgumentException("Usage: " + usage); }
     private static int line(String value, List<String> lines) { try { int index = Integer.parseInt(value) - 1; if (index < 0 || index >= lines.size()) throw new NumberFormatException(); return index; } catch (NumberFormatException e) { throw new IllegalArgumentException("Line must be between 1 and " + lines.size() + "."); } }
     private void message(CommandSender sender, String value) { sender.sendMessage(mini.deserialize(config.get().prefix() + value)); }
+    private void templated(CommandSender sender, String key, String fallback, String... replacements) {
+        String value = config.get().message(key, fallback);
+        for (int i = 0; i + 1 < replacements.length; i += 2) value = value.replace("<" + replacements[i] + ">", replacements[i + 1]);
+        message(sender, value);
+    }
     private static String join(String[] args, int from) { return String.join(" ", Arrays.copyOfRange(args, from, args.length)); }
     private static List<String> filter(List<String> values, String prefix) { String p = prefix.toLowerCase(Locale.ROOT); return values.stream().filter(v -> v.toLowerCase(Locale.ROOT).startsWith(p)).toList(); }
     private static String escape(String value) { return value == null ? "unknown" : value.replace("<", "\\<"); }
