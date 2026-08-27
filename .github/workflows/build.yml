@@ -13,6 +13,7 @@ jobs:
   build:
     name: Minecraft ${{ matrix.minecraft }}.x
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
@@ -40,10 +41,10 @@ jobs:
 
       - name: Verify artifacts
         run: |
-          test -f limbo/build/libs/LimboNPC-Limbo-${{ matrix.minecraft }}.jar
-          test -f velocity/build/libs/LimboNPC-Velocity-${{ matrix.minecraft }}.jar
+          test -f "limbo/build/libs/LimboNPC-Limbo-${{ matrix.minecraft }}.jar"
+          test -f "velocity/build/libs/LimboNPC-Velocity-${{ matrix.minecraft }}.jar"
 
-      - name: Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: LimboNPC-${{ matrix.minecraft }}
@@ -53,20 +54,51 @@ jobs:
             velocity/build/libs/LimboNPC-Velocity-${{ matrix.minecraft }}.jar
 
   nightly:
-    name: Update Nightly Release
+    name: Publish Nightly
     runs-on: ubuntu-latest
     needs: build
+
     if: github.event_name != 'pull_request'
 
     steps:
-      - name: Download build artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: LimboNPC-*
           path: artifacts
-          merge-multiple: true
+          merge-multiple: false
 
-      - name: Update Nightly release
+      - name: Show downloaded files
+        run: |
+          echo "Downloaded files:"
+          find artifacts -type f -print
+
+      - name: Prepare release files
+        run: |
+          mkdir release
+
+          cp "artifacts/LimboNPC-26/limbo/build/libs/LimboNPC-Limbo-26.jar" \
+             "release/LimboNPC-Limbo-26.jar"
+
+          cp "artifacts/LimboNPC-26/velocity/build/libs/LimboNPC-Velocity-26.jar" \
+             "release/LimboNPC-Velocity-26.jar"
+
+          cp "artifacts/LimboNPC-1.21/limbo/build/libs/LimboNPC-Limbo-1.21.jar" \
+             "release/LimboNPC-Limbo-1.21.jar"
+
+          cp "artifacts/LimboNPC-1.21/velocity/build/libs/LimboNPC-Velocity-1.21.jar" \
+             "release/LimboNPC-Velocity-1.21.jar"
+
+          cp "artifacts/LimboNPC-1.20/limbo/build/libs/LimboNPC-Limbo-1.20.jar" \
+             "release/LimboNPC-Limbo-1.20.jar"
+
+          cp "artifacts/LimboNPC-1.20/velocity/build/libs/LimboNPC-Velocity-1.20.jar" \
+             "release/LimboNPC-Velocity-1.20.jar"
+
+          echo "Release files:"
+          ls -lh release/
+
+      - name: Publish Nightly release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: nightly
@@ -74,10 +106,4 @@ jobs:
           prerelease: true
           make_latest: false
           overwrite_files: true
-          files: |
-            artifacts/LimboNPC-Limbo-26.jar
-            artifacts/LimboNPC-Velocity-26.jar
-            artifacts/LimboNPC-Limbo-1.21.jar
-            artifacts/LimboNPC-Velocity-1.21.jar
-            artifacts/LimboNPC-Limbo-1.20.jar
-            artifacts/LimboNPC-Velocity-1.20.jar
+          files: release/*.jar
